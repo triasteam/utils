@@ -1,5 +1,5 @@
 ### 使用方法：
-1. 配置server,  找到 ${user.home}/.m2/settings.xml
+1. 配置server,  找到 ${user.home}/.m2/settings.xml。${user.home}/.m2是mvn 默认仓库地址，如果该路径下没有settings.xml可以从${MAVEN_HOME}/config目录copy一份过来。或者直接修改${MAVEN_HOME}/config/settings.xml。
     ```
     <servers>
         <server>
