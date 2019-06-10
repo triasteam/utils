@@ -9,6 +9,7 @@
         </server>
     </servers>
     ```
+    这里，需要给username添加maven代码仓库的管理员权限。
 2. clone工程到本地
     ```
     :~$ git clone https://github.com/triasteam/utils.git
