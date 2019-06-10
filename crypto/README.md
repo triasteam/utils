@@ -3,7 +3,6 @@
     ```
     <servers>
         <server>
-            # specified
             <id>github</id>
             <username>github_login_name</username>
             <password>github_login_password</password>
