@@ -1,15 +1,22 @@
 package com.iri.utils.crypto.ellipticcurve;
+
+import com.iri.utils.crypto.ellipticcurve.utils.BinaryAscii;
 import com.iri.utils.crypto.ellipticcurve.utils.ByteString;
 import com.iri.utils.crypto.ellipticcurve.utils.Der;
-import com.iri.utils.crypto.ellipticcurve.utils.BinaryAscii;
 import com.iri.utils.crypto.ellipticcurve.utils.RandomInteger;
+import io.ipfs.multibase.Base58;
+import org.junit.Assert;
+
 import java.math.BigInteger;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
 
 public class PrivateKey {
 
-    public Curve curve;
+
+     Curve curve;
     public BigInteger secret;
 
     public PrivateKey() {
@@ -116,5 +123,63 @@ public class PrivateKey {
 
     public static PrivateKey fromString(ByteString string) {
         return PrivateKey.fromString(string, Curve.secp256k1);
+    }
+
+    public static PrivateKey fromBase58(String base58PrivateKey){
+        char tip = base58PrivateKey.charAt(0);
+        boolean compressed;
+        if (tip == 'L' || tip == 'K'){
+            compressed = true;
+        }
+        else if(tip == '5'){
+            compressed = false;
+        }
+        else{
+            throw new RuntimeException("error: private must start with 5 if uncompressed or L/K for compressed, but actural:" + base58PrivateKey);
+        }
+        byte[] encodedPrivKey = Base58.decode(base58PrivateKey);
+        String hexPrivKey = BinaryAscii.hexFromBinary(encodedPrivKey);
+
+        checkLength(hexPrivKey, compressed);
+
+        String secretString;
+        if (compressed){
+            secretString = hexPrivKey.substring(2, hexPrivKey.length() - 8);
+        }
+        else{
+            secretString = hexPrivKey.substring(2,hexPrivKey.length() - 10);
+        }
+
+        BigInteger secret = new BigInteger(secretString, 16);
+        try {
+            checkSum(encodedPrivKey, hexPrivKey);
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+
+        return new PrivateKey(Curve.secp256k1, secret);
+    }
+
+    private static void checkSum(byte[] encodedPrivKey, String hexPrivKey) throws NoSuchAlgorithmException {
+        byte[] checkPrivKey = new byte[encodedPrivKey.length - 4];
+        System.arraycopy(encodedPrivKey, 0, checkPrivKey, 0, encodedPrivKey.length - 4);
+        byte[] afterHash = doubleHash(checkPrivKey, MessageDigest.getInstance("SHA-256"));
+        byte[] checkSum = new byte[4];
+        System.arraycopy(afterHash, 0, checkSum, 0, 4);
+        String hexCheckSum = BinaryAscii.hexFromBinary(checkSum);
+
+        Assert.assertTrue("error: checksum error.", hexCheckSum.equals(hexPrivKey.substring(hexPrivKey.length() - 8)));
+    }
+
+    private static void checkLength(String hexPrivKey, boolean compressed) {
+        if (compressed){
+            Assert.assertTrue("error: length of uncompressed hex private key is not 76",hexPrivKey.length() == 76);
+        }else{
+            Assert.assertTrue("error: length of uncompressed hex private key is not 74",hexPrivKey.length() == 74);
+        }
+    }
+
+    private static byte[] doubleHash(byte[] h, MessageDigest hashFunc){
+        return hashFunc.digest(hashFunc.digest(h));
     }
 }

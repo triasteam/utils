@@ -5,6 +5,7 @@ import com.iri.utils.crypto.ellipticcurve.utils.BinaryAscii;
 import com.iri.utils.crypto.ellipticcurve.utils.ByteString;
 import com.iri.utils.crypto.ellipticcurve.utils.Ripemd160;
 import io.ipfs.multibase.Base58;
+import org.apache.log4j.Logger;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -19,15 +20,108 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * utils for crypto
+ * <pre>
+ *     <li>method <code>generateSecureInfo</code>: generate security key including private key and address</li>
+ *     <li>method <code>sign</code>: sign message using private key string encoded by base58</li>
+ *     <li>method <code>verifyMessage</code>: verify message</li>
+ * </pre>
+ */
 public class EcdsaUtils {
+    private static final Logger logger = Logger.getLogger(EcdsaUtils.class);
+
+    /**
+     * generate private key and address.
+     * @return
+     */
+    public static SecureInfo generateSecureInfo(){
+        PrivateKey privateKey = new PrivateKey();
+        try {
+            return new SecureInfo(convert2Base58(privateKey, MessageDigest.getInstance("SHA-256")), generateAddress(privateKey));
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("generate private key and address error. ", e);
+        }
+    }
+
+    private static String convert2Base58(PrivateKey privateKey, MessageDigest func) {
+        String hex = BinaryAscii.hexFromBinary(privateKey.toByteString());
+
+        String with80 = "80" + hex;
+
+        byte[] bs2 = BinaryAscii.binaryFromHex(with80);
+
+        byte[] hash256 = func.digest(bs2);
+
+        byte[] hash256twice = func.digest(hash256);
+
+        byte[] first4byte = new byte[4];
+
+        System.arraycopy(hash256twice, 0, first4byte, 0, 4);
+
+        String hexFirst4Byte = BinaryAscii.hexFromBinary(first4byte);
+
+        with80 = with80 + hexFirst4Byte;
+
+        byte[] bs3 = BinaryAscii.binaryFromHex(with80);
+
+        return Base58.encode(bs3);
+    }
+
+    private static String generateAddress(PrivateKey privateKey) throws NoSuchAlgorithmException {
+        return EcdsaUtils.generateAddress(privateKey.publicKey(), true);
+    }
+
+    /**
+     * sign message
+     * @param message
+     * @param base58PrivateKey
+     * @param address
+     * @return
+     */
+    public static String sign(String message, String base58PrivateKey, String address){
+        PrivateKey privateKey = PrivateKey.fromBase58(base58PrivateKey);
+        Signature signature = Ecdsa.sign(EcdsaUtils.wrap(message), privateKey);
+        int nv;
+        for(int i=0; i<4; i++){
+            nv = 27 + i + 4;
+            String sig = org.apache.xerces.impl.dv.util.Base64.encode(concatByteArray(BigInteger.valueOf(nv).toByteArray(), BinaryAscii.stringFromNumber(signature.r, signature.r.bitLength()).getBytes(), BinaryAscii.stringFromNumber(signature.s, signature.s.bitLength()).getBytes()));
+            try {
+                if (EcdsaUtils.verifyMessage(sig,message, address).verifyResult()){
+                    return sig;
+                }
+            } catch (NoSuchAlgorithmException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        throw new RuntimeException("error: can not sig message.");
+    }
+
+    private static byte[] concatByteArray(byte[] array1, byte[] ... array2){
+        int size = 0;
+        for (byte[] a : array2){
+            size += a.length;
+        }
+        byte[] dest = new byte[array1.length + size];
+        System.arraycopy(array1, 0, dest, 0, array1.length);
+        int index = array1.length;
+        for(byte[] array22 : array2) {
+            System.arraycopy(array22, 0, dest, index, array22.length);
+            index += array22.length;
+        }
+        return dest;
+    }
 
     /**
      *  1. validate signature
      *  2. validate address
      *
-     * @param signature
-     * @param message
-     * @param address
+     * @param signature signature string encoded by base64
+     * @param message ori message, for example "hello world"
+     * @param address just as btcoin address
+     * @return ValidRes includes verify result (true/false) and verify message
      * @throws NoSuchAlgorithmException
      */
     public static ValidRes verifyMessage(String signature, String message, String address) throws NoSuchAlgorithmException, IOException {
@@ -58,7 +152,7 @@ public class EcdsaUtils {
         PublicKey publicKey = recoverFrom(wrap(message), r, s, nV, curve);
         Signature signature1 = new Signature(BinaryAscii.numberFromString(r), BinaryAscii.numberFromString(s));
 
-        if (!verify(wrap(message), signature1, publicKey, MessageDigest.getInstance("SHA-256"))){
+        if (!Ecdsa.verify(wrap(message), signature1, publicKey, MessageDigest.getInstance("SHA-256"))){
             String error = String.format("verify signature failed, expect:%s, actural :%s", signature, signature1.toBase64());
             return new ValidRes(false, error);
         }
@@ -71,6 +165,7 @@ public class EcdsaUtils {
         return new ValidRes(true, "success");
     }
 
+    /* internal method  */
     private static String wrap(String message){
         String msg = (char)0x18 + "Bitcoin Signed Message:" + (char)'\n' + (char)message.length() + message;
         return msg;
@@ -103,7 +198,8 @@ public class EcdsaUtils {
         return publicKey;
     }
 
-    public static String generateAddress(PublicKey publicKey, Boolean isCompressed) throws NoSuchAlgorithmException {
+    /* replaced with generateSecureInfo for public */
+    private static String generateAddress(PublicKey publicKey, Boolean isCompressed) throws NoSuchAlgorithmException {
         Point point = publicKey.point;
         ByteString xStr = BinaryAscii.stringFromNumber(point.x, Curve.secp256k1.length());
         ByteString yStr = BinaryAscii.stringFromNumber(point.y, Curve.secp256k1.length());
@@ -127,20 +223,8 @@ public class EcdsaUtils {
         return Base58.encode(addr);
     }
 
-    public static boolean verify(String message, Signature signature, PublicKey publicKey, MessageDigest hashfunc) {
-        byte[] hashMessage = hashfunc.digest(hashfunc.digest(message.getBytes()));
-        BigInteger numberMessage = BinaryAscii.numberFromString(hashMessage);
-        Curve curve = publicKey.curve;
-        BigInteger r = signature.r;
-        BigInteger s = signature.s;
-        BigInteger w = Math.inv(s, curve.N);
-        Point u1 = Math.multiply(curve.G, numberMessage.multiply(w).mod(curve.N), curve.N, curve.A, curve.P);
-        Point u2 = Math.multiply(publicKey.point, r.multiply(w).mod(curve.N), curve.N, curve.A, curve.P);
-        Point point = Math.add(u1, u2, curve.A, curve.P);
-        return r.compareTo(point.x) == 0;
-    }
-
-    public static BigInteger modularSqrt(BigInteger a, BigInteger p){
+    /* not for public */
+    private static BigInteger modularSqrt(BigInteger a, BigInteger p){
         if (legendreSymbol(a,p).intValue() != 1){
             return BigInteger.valueOf(0);
         }
@@ -193,7 +277,8 @@ public class EcdsaUtils {
         }
     }
 
-    public static BigInteger legendreSymbol(BigInteger a, BigInteger p){
+    /* not for public */
+    private static BigInteger legendreSymbol(BigInteger a, BigInteger p){
         BigInteger ls = a.modPow(p.subtract(BigInteger.valueOf(1)).divide(BigInteger.valueOf(2)), p);
         return ls.equals(p) ? p.subtract(BigInteger.valueOf(1)) : ls;
     }
@@ -220,6 +305,12 @@ public class EcdsaUtils {
         }
     }
 
+    /**
+     *  format simple java bean
+     *  <b>please do not use this method for complicate object</b>
+     * @param json
+     * @return
+     */
     public static String getSortedStringFrom(JSONObject json){
         StringWriter w = new StringWriter();
         synchronized (w.getBuffer()){
@@ -271,6 +362,32 @@ public class EcdsaUtils {
         }
         else{
             throw new RuntimeException("unknown transaction field type:" + value.getClass());
+        }
+    }
+
+    static class SecureInfo{
+        private String privateKey;
+        private String address;
+
+        public SecureInfo(String privateKey, String address){
+            this.privateKey = privateKey;
+            this.address = address;
+        }
+
+        public String getPrivateKey() {
+            return privateKey;
+        }
+
+        public String getAddress() {
+            return address;
+        }
+
+        /**
+         * only return address.
+         * @return
+         */
+        public String toString(){
+            return "privateKey: ****, address: "+address;
         }
     }
 }
