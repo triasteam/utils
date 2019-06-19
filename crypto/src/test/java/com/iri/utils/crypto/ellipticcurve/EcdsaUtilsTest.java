@@ -1,5 +1,6 @@
 package com.iri.utils.crypto.ellipticcurve;
 
+import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -22,4 +23,12 @@ public class EcdsaUtilsTest {
         }
     }
 
+    @Test
+    public void testSign() throws IOException, NoSuchAlgorithmException {
+        String message = "test message";
+        EcdsaUtils.SecureInfo secureInfo = EcdsaUtils.generateSecureInfo();
+        String sign = EcdsaUtils.sign(message, secureInfo.getPrivateKey(), secureInfo.getAddress());
+        EcdsaUtils.ValidRes res = EcdsaUtils.verifyMessage(sign, message, secureInfo.getAddress());
+        Assert.assertTrue(res.errMessage(), res.verifyResult());
+    }
 }

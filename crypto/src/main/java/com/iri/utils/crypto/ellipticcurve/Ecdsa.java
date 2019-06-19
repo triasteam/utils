@@ -1,6 +1,8 @@
 package com.iri.utils.crypto.ellipticcurve;
+
 import com.iri.utils.crypto.ellipticcurve.utils.BinaryAscii;
 import com.iri.utils.crypto.ellipticcurve.utils.RandomInteger;
+
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -9,7 +11,7 @@ import java.security.NoSuchAlgorithmException;
 public final class Ecdsa {
 
     public static Signature sign(String message, PrivateKey privateKey, MessageDigest hashfunc) {
-        byte[] hashMessage = hashfunc.digest(message.getBytes());
+        byte[] hashMessage = hashfunc.digest(hashfunc.digest(message.getBytes()));
         BigInteger numberMessage = BinaryAscii.numberFromString(hashMessage);
         Curve curve = privateKey.curve;
         BigInteger randNum = RandomInteger.between(BigInteger.ONE, curve.N);
@@ -28,7 +30,7 @@ public final class Ecdsa {
     }
 
     public static boolean verify(String message, Signature signature, PublicKey publicKey, MessageDigest hashfunc) {
-        byte[] hashMessage = hashfunc.digest(message.getBytes());
+        byte[] hashMessage = hashfunc.digest(hashfunc.digest(message.getBytes()));
         BigInteger numberMessage = BinaryAscii.numberFromString(hashMessage);
         Curve curve = publicKey.curve;
         BigInteger r = signature.r;
