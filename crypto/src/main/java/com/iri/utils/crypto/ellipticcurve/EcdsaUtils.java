@@ -365,7 +365,7 @@ public class EcdsaUtils {
         }
     }
 
-    static class SecureInfo{
+    public static class SecureInfo{
         private String privateKey;
         private String address;
 
