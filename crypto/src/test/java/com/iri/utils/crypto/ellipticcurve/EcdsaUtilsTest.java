@@ -1,10 +1,12 @@
 package com.iri.utils.crypto.ellipticcurve;
 
+import com.iri.utils.crypto.ellipticcurve.utils.BinaryAscii;
 import org.json.JSONObject;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 public class EcdsaUtilsTest {
@@ -55,6 +57,20 @@ public class EcdsaUtilsTest {
         //验证地址和密钥可以用来签名
         String message = "123456";
         String sign = EcdsaUtils.sign(address, base58, address);
+        // from python cli
+        sign = "IECCntPLBtCBeGhUQDmhzW1h4CFpDDqI+JLs0T5nCv9AmhbVolQkcfK2DexF89ewdCSD1eT5/rmpzGqJAY/Whls=";
         EcdsaUtils.verifyMessage(sign, message, address);
+    }
+
+    @Test
+    public void testReadData() throws NoSuchAlgorithmException, IOException {
+        String json = "{\"address\": \"1vofXj4Vf2cgJDQrbbN2Zc6gG9qmRmk96\", \"attestee\": \"10.0.0.2\", \"attester\": \"10.0.0.1\", \"nonce\": \"1\", \"score\": \"1\", \"time\": \"2213223190\"}";
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        digest.update(json.getBytes());
+        String message = BinaryAscii.hexFromBinary(digest.digest());
+        String address = "1vofXj4Vf2cgJDQrbbN2Zc6gG9qmRmk96";
+        String sign = "H3bfDz12p0vxvqrx68Fx0Y49yyoAvC2fapuvbZTiF4KEhc1Kv25vhRPYbg9QvQltcvP9+U5D+yMC3ChOUusYqbQ=";
+        EcdsaUtils.ValidRes res = EcdsaUtils.verifyMessage(sign, message, address);
+        System.out.println(res);
     }
 }
