@@ -68,7 +68,7 @@ public class EcdsaUtils {
         return Base58.encode(bs3);
     }
 
-    private static String generateAddress(PrivateKey privateKey) throws NoSuchAlgorithmException {
+    public static String generateAddress(PrivateKey privateKey) throws NoSuchAlgorithmException {
         return EcdsaUtils.generateAddress(privateKey.publicKey(), true);
     }
 

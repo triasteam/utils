@@ -144,10 +144,10 @@ public class PrivateKey {
 
         String secretString;
         if (compressed){
-            secretString = hexPrivKey.substring(2, hexPrivKey.length() - 8);
+            secretString = hexPrivKey.substring(2, hexPrivKey.length() - 10);
         }
         else{
-            secretString = hexPrivKey.substring(2,hexPrivKey.length() - 10);
+            secretString = hexPrivKey.substring(2,hexPrivKey.length() - 8);
         }
 
         BigInteger secret = new BigInteger(secretString, 16);
