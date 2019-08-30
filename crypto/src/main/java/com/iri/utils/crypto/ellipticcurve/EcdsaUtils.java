@@ -38,7 +38,9 @@ public class EcdsaUtils {
     public static SecureInfo generateSecureInfo(){
         PrivateKey privateKey = new PrivateKey();
         try {
-            return new SecureInfo(convert2Base58(privateKey, MessageDigest.getInstance("SHA-256")), generateAddress(privateKey));
+            String base58 = convert2Base58(privateKey, MessageDigest.getInstance("SHA-256"));
+            String address = generateAddress(PrivateKey.fromBase58(base58));
+            return new SecureInfo(base58, address);
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("generate private key and address error. ", e);
         }
